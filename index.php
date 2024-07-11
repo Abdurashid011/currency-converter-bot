@@ -1,6 +1,8 @@
 <?php
 
 require 'vendor/autoload.php';
+require_once 'Currency.php';
+require_once 'db.php';
 
 use GuzzleHttp\Client;
 
@@ -17,29 +19,31 @@ if (isset($update) && isset($update->message)) {
     $text = $message->text;
 
     if (!empty($text)) {
-        // Valyuta konvertatsiyasi uchun
-        if (strpos($text, "/convert") === 0) {
-            $params = explode(" ", $text);
-            if (count($params) == 4) {
-                $amount = $params[1];
-                $from_currency = strtoupper($params[2]);
-                $to_currency = strtoupper($params[3]);
-
-                require_once "Currency.php";
+        if (strpos($text, ':')) {
+            $params = explode(":", $text);
+            if (count($params) == 3) {
+                $from_currency = strtoupper($params[0]);
+                $to_currency = strtoupper($params[1]);
+                $amount = $params[2];
 
                 $currencyConverter = new Currency();
                 $converted = $currencyConverter->exchange((float)$amount, $from_currency, $to_currency);
 
                 if ($converted !== null) {
                     $responseText = "Konvertatsiya natijasi: $amount $from_currency = $converted $to_currency";
+
+                    // Ma'lumotlar bazasiga yozish
+                    global $pdo;
+                    $stmt = $pdo->prepare("INSERT INTO conversions (userid, amount, from_currency, to_currency, converted_amount, conversion_time) VALUES (?, ?, ?, ?, ?, ?)");
+                    $stmt->execute([$chat_id, $amount, $from_currency, $to_currency, $converted, date('Y-m-d H:i:s')]);
                 } else {
                     $responseText = "Valyuta kursini olishda xatolik yuz berdi.";
                 }
             } else {
-                $responseText = "Noto'g'ri format. To'g'ri format: /convert <miqdor> <from_valyuta> <to_valyuta>";
+                $responseText = "Noto'g'ri format. To'g'ri format: <from_valyuta>:<to_valyuta>:<miqdor>";
             }
         } else {
-            $responseText = "Salom! Men valyuta konvertatsiyasi qilish uchun mo'ljallanganman. /convert buyrug'ini ishlatib valyutalarni konvertatsiya qiling.";
+            $responseText = "Valyutalarni konvertatsiya qilish uchun <from_valyuta>:<to_valyuta>:<miqdor> formatida yozing.";
         }
 
         // Javobni yuborish

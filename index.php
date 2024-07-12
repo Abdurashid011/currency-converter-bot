@@ -13,7 +13,7 @@ $client = new Client(['base_uri' => $tgApi]);
 
 $update = json_decode(file_get_contents('php://input'));
 
-if (isset($update) && isset($update->message)) {
+if (isset($update->message)) {
     $message = $update->message;
     $chat_id = $message->chat->id;
     $text = $message->text;
@@ -24,29 +24,30 @@ if (isset($update) && isset($update->message)) {
             if (count($params) == 3) {
                 $from_currency = strtoupper($params[0]);
                 $to_currency = strtoupper($params[1]);
-                $amount = $params[2];
+                $amount = (float)$params[2];
 
                 $currencyConverter = new Currency();
-                $converted = $currencyConverter->exchange((float)$amount, $from_currency, $to_currency);
+                $converted = $currencyConverter->exchange($amount, $from_currency, $to_currency);
 
                 if ($converted !== null) {
-                    $responseText = "Konvertatsiya natijasi: $amount $from_currency = $converted $to_currency";
+                    $responseText = "Conversion result: $amount $from_currency = $converted $to_currency";
 
-                    // Ma'lumotlar bazasiga yozish
-                    global $pdo;
-                    $stmt = $pdo->prepare("INSERT INTO conversions (userid, amount, from_currency, to_currency, converted_amount, conversion_time) VALUES (?, ?, ?, ?, ?, ?)");
+                    $pdo = db::connect();
+                    $stmt = $pdo->prepare("INSERT INTO conversions(
+                                        user_id, amount, from_currency, to_currency, converted_amount, conversion_time)
+                                        VALUES (?, ?, ?, ?, ?, ?)");
                     $stmt->execute([$chat_id, $amount, $from_currency, $to_currency, $converted, date('Y-m-d H:i:s')]);
                 } else {
-                    $responseText = "Valyuta kursini olishda xatolik yuz berdi.";
+                    $responseText = "Error occurred while fetching exchange rate.";
                 }
             } else {
-                $responseText = "Noto'g'ri format. To'g'ri format: <from_valyuta>:<to_valyuta>:<miqdor>";
+                $responseText = "Incorrect format. Correct format: <from_currency>:<to_currency>:<amount>";
             }
         } else {
-            $responseText = "Valyutalarni konvertatsiya qilish uchun <from_valyuta>:<to_valyuta>:<miqdor> formatida yozing.";
+            $responseText = "To convert currencies, use the format <from_currency>:<to_currency>:<amount>.";
         }
 
-        // Javobni yuborish
+        // Send the response
         $client->post('sendMessage', [
             'form_params' => [
                 'chat_id' => $chat_id,
@@ -54,8 +55,8 @@ if (isset($update) && isset($update->message)) {
             ]
         ]);
     } else {
-        error_log("Xabar matni bo'sh.");
+        error_log("Message text is empty.");
     }
 } else {
-    error_log("Update yoki xabar mavjud emas.");
+    error_log("Update or message is not present.");
 }

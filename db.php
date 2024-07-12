@@ -1,13 +1,26 @@
 <?php
 
-$dsn = 'mysql:host=localhost;dbname=converter_db;charset=utf8';
-$username = 'abdurashid';
-$password = 'Abdu_1504';
+declare(strict_types=1);
 
-try {
-    $pdo = new PDO($dsn, $username, $password);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+class DB
+{
+    private static ?PDO $pdo = null;
 
-} catch (PDOException $e) {
-    die("Ma'lumotlar bazasi bilan bog'lanishda xato: " . $e->getMessage());
+    public static function connect(): PDO
+    {
+        if (self::$pdo === null) {
+            self::$pdo = new PDO('mysql:host=localhost;dbname=converter_db', 'abdurashid', 'Abdu_1504', [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+            ]);
+        }
+        return self::$pdo;
+    }
+
+    public static function getConversions(): array
+    {
+        $pdo = self::connect();
+        $stmt = $pdo->query("SELECT * FROM conversions");
+        return $stmt->fetchAll();
+    }
 }

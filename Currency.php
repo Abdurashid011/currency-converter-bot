@@ -8,8 +8,8 @@ class Currency
 
     public function exchange(float $amount, string $from_currency, string $to_currency): ?float
     {
-        // Valyuta kurslarini olish
-        $content = file_get_contents(self::CB_URL);
+        // Fetch exchange rates
+        $content = @file_get_contents(self::CB_URL);
         if ($content === false) {
             return null;
         }
@@ -19,11 +19,9 @@ class Currency
             return null;
         }
 
-        // UZS kurslarini aniqlash
         $from_rate = ($from_currency === 'UZS') ? 1 : null;
         $to_rate = ($to_currency === 'UZS') ? 1 : null;
 
-        // Kurslarni topish
         foreach ($rates as $rate) {
             if ($rate['Ccy'] === $from_currency) {
                 $from_rate = floatval($rate['Rate']);
@@ -36,17 +34,22 @@ class Currency
             }
         }
 
-        // Agar ikkala kurs ham mavjud bo'lsa, konvertatsiya qilish
+        // Convert if both rates are available
         if ($from_rate !== null && $to_rate !== null) {
-            if ($from_currency === 'UZS') {
-                return round($amount / $to_rate, 2);
-            }
-            if ($to_currency === 'UZS') {
-                return round($amount * $from_rate, 2);
-            }
-            return round(($amount * $from_rate) / $to_rate, 2);
+            return $this->calculateExchange($amount, $from_currency, $to_currency, $from_rate, $to_rate);
         }
 
         return null;
+    }
+
+    private function calculateExchange(float $amount, string $from_currency, string $to_currency, float $from_rate, float $to_rate): float
+    {
+        if ($from_currency === 'UZS') {
+            return round($amount / $to_rate, 2);
+        }
+        if ($to_currency === 'UZS') {
+            return round($amount * $from_rate, 2);
+        }
+        return round(($amount * $from_rate) / $to_rate, 2);
     }
 }
